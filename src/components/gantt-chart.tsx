@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import { GanttHeat, Operation } from '@/lib/types';
 import _ from 'lodash';
@@ -19,6 +19,7 @@ const UNIT_ORDER = [
 export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [selectedHeatId, setSelectedHeatId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current || !tooltipRef.current || heats.length === 0) {
@@ -71,7 +72,6 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
       const containerWidth = chartOutputEl.clientWidth;
       const height = (UNIT_ORDER.length * 35); // 35px row height
       
-      // The total width is proportional to the full time range, but the viewport is fixed.
       const totalTimeMinutes = (fullTimeDomainEnd.getTime() - fullTimeDomainStart.getTime()) / 60000;
       const visibleTimeMinutes = timeRange * 60;
       const width = containerWidth * (totalTimeMinutes / visibleTimeMinutes);
@@ -81,6 +81,11 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
+        .on("click", (event) => { // Click on background to deselect
+            if (event.target === event.currentTarget) {
+                setSelectedHeatId(null);
+            }
+        })
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -105,6 +110,11 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
         .call(yAxis)
         .selectAll("path, line")
         .attr("stroke", "hsl(var(--border))");
+
+      const handleBarClick = (event: MouseEvent, d: any) => {
+          event.stopPropagation(); // Prevent background click
+          setSelectedHeatId(prevId => prevId === d.Heat_ID ? null : d.Heat_ID);
+      }
 
       const mouseover = () => tooltipEl.style("opacity", 1);
       const mousemoveBar = (event: MouseEvent, d: any) => {
@@ -149,6 +159,8 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
         .attr("stroke", d => heatColorScale(d.Heat_ID))
         .attr("stroke-width", 1.5)
         .attr("stroke-dasharray", "3,3")
+        .style("opacity", d => selectedHeatId === null || selectedHeatId === d.Heat_ID ? 1 : 0.2)
+        .style("transition", "opacity 0.3s")
         .on("mouseover", mouseover)
         .on("mousemove", mousemoveLink)
         .on("mouseleave", mouseleave);
@@ -162,9 +174,13 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
         .attr("y", d => yScale(d.unit)!)
         .attr("width", d => Math.max(0, xScale(d.endTime) - xScale(d.startTime)))
         .attr("height", yScale.bandwidth())
-        .attr("fill", d => heatColorScale(d.Heat_ID))
+        .attr("fill", d => selectedHeatId === null || selectedHeatId === d.Heat_ID ? heatColorScale(d.Heat_ID) : "#cccccc")
         .attr("rx", 3)
         .attr("ry", 3)
+        .style("opacity", d => selectedHeatId === null || selectedHeatId === d.Heat_ID ? 1 : 0.5)
+        .style("cursor", "pointer")
+        .style("transition", "fill 0.3s, opacity 0.3s")
+        .on("click", handleBarClick)
         .on("mouseover", mouseover)
         .on("mousemove", mousemoveBar)
         .on("mouseleave", mouseleave);
@@ -187,9 +203,9 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
         .attr("font-size", "11px")
         .attr("font-weight", 500)
         .attr("fill", "white")
-        .style("pointer-events", "none");
+        .style("pointer-events", "none")
+        .style("opacity", d => selectedHeatId === null || selectedHeatId === d.Heat_ID ? 1 : 0.3);
         
-      // Adjust scroll
       chartOutputEl.style.width = `${containerWidth}px`;
       chartOutputEl.style.overflowX = 'auto';
 
@@ -204,7 +220,7 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
 
-  }, [heats, timeRange]);
+  }, [heats, timeRange, selectedHeatId]);
 
 
   if (heats.length === 0) {
@@ -238,5 +254,3 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
     </>
   );
 }
-
-    
