@@ -5,55 +5,47 @@ import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 import { GanttHeat, Operation } from '@/lib/types';
 import _ from 'lodash';
+import type { TimeRange } from '@/app/page';
 
 interface GanttChartProps {
   data: GanttHeat[];
+  timeRange: TimeRange;
 }
 
 const UNIT_ORDER = [
   "KR1", "KR2", "BOF1", "BOF2", "BOF3", "BOF4", "BOF5", "LF1", "LF2", "LF3", "LF4", "LF5", "BCM1", "BCM2", "BCM3", "TSC1", "TSC2"
 ];
 
-export function GanttChart({ data: heats }: GanttChartProps) {
+export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current || !tooltipRef.current || heats.length === 0) {
-      // Clear chart if no data
       if (chartContainerRef.current) {
          d3.select(chartContainerRef.current).select("svg").remove();
       }
       return;
     }
 
-    // --- D3 Drawing Logic ---
     const drawD3Gantt = () => {
       const chartOutputEl = chartContainerRef.current!;
       const tooltipEl = d3.select(tooltipRef.current);
       
-      // Clear previous chart
       d3.select(chartOutputEl).select("svg").remove();
 
-      // 1. Prepare data for D3
       let allOperations: (Operation & { Heat_ID: string; Steel_Grade: string; })[] = [];
       let minTime = new Date(8640000000000000);
       let maxTime = new Date(-8640000000000000);
       
       const heatIDs = heats.map(h => h.Heat_ID);
-
       let linksData: { Heat_ID: string; Steel_Grade: string; op1: Operation; op2: Operation }[] = [];
 
       heats.forEach(heat => {
         const sortedOps = _.sortBy(heat.operations, 'startTime');
         
         for (let i = 0; i < sortedOps.length - 1; i++) {
-          linksData.push({
-            Heat_ID: heat.Heat_ID,
-            Steel_Grade: heat.Steel_Grade,
-            op1: sortedOps[i],
-            op2: sortedOps[i+1]
-          });
+          linksData.push({ Heat_ID: heat.Heat_ID, Steel_Grade: heat.Steel_Grade, op1: sortedOps[i], op2: sortedOps[i+1] });
         }
 
         sortedOps.forEach(op => {
@@ -71,17 +63,20 @@ export function GanttChart({ data: heats }: GanttChartProps) {
       }
       if(allOperations.length === 0) return;
 
-      minTime = d3.timeMinute.offset(minTime, -15);
-      maxTime = d3.timeMinute.offset(maxTime, 15);
+      const fullTimeDomainStart = d3.timeMinute.offset(minTime, -15);
+      const fullTimeDomainEnd = d3.timeMinute.offset(maxTime, 15);
+      const visibleTimeDomainEnd = d3.timeHour.offset(fullTimeDomainStart, timeRange);
 
-      // 2. Setup SVG dimensions
       const margin = { top: 30, right: 30, bottom: 30, left: 60 };
       const containerWidth = chartOutputEl.clientWidth;
-      const width = Math.max(800, containerWidth) - margin.left - margin.right;
-      const rowHeight = 35;
-      const height = (UNIT_ORDER.length * rowHeight);
+      const height = (UNIT_ORDER.length * 35); // 35px row height
+      
+      // The total width is proportional to the full time range, but the viewport is fixed.
+      const totalTimeMinutes = (fullTimeDomainEnd.getTime() - fullTimeDomainStart.getTime()) / 60000;
+      const visibleTimeMinutes = timeRange * 60;
+      const width = containerWidth * (totalTimeMinutes / visibleTimeMinutes);
 
-      // 3. Create SVG container
+
       const svg = d3.select(chartOutputEl)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
@@ -89,15 +84,13 @@ export function GanttChart({ data: heats }: GanttChartProps) {
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-      // 4. Define Scales
-      const xScale = d3.scaleTime().domain([minTime, maxTime]).range([0, width]);
+      const xScale = d3.scaleTime().domain([fullTimeDomainStart, fullTimeDomainEnd]).range([0, width]);
       const yScale = d3.scaleBand().domain(UNIT_ORDER).range([0, height]).padding(0.2);
       const heatColorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(heatIDs);
 
-      // 5. Draw Axes
       const xAxis = d3.axisBottom(xScale)
         .tickFormat(d3.timeFormat("%H:%M") as (d: Date | { valueOf(): number; }, i: number) => string)
-        .ticks(d3.timeHour.every(1));
+        .ticks(d3.timeMinute.every(30));
         
       svg.append("g")
         .attr("class", "axis text-xs text-muted-foreground")
@@ -113,7 +106,6 @@ export function GanttChart({ data: heats }: GanttChartProps) {
         .selectAll("path, line")
         .attr("stroke", "hsl(var(--border))");
 
-      // 6. Tooltip Events
       const mouseover = () => tooltipEl.style("opacity", 1);
       const mousemoveBar = (event: MouseEvent, d: any) => {
         tooltipEl.html(`
@@ -144,7 +136,6 @@ export function GanttChart({ data: heats }: GanttChartProps) {
 
       const mouseleave = () => tooltipEl.style("opacity", 0);
 
-      // 7. Draw Links
       svg.append("g")
         .attr("class", "links")
         .selectAll("line")
@@ -162,7 +153,6 @@ export function GanttChart({ data: heats }: GanttChartProps) {
         .on("mousemove", mousemoveLink)
         .on("mouseleave", mouseleave);
 
-      // 8. Draw Bars
       svg.append("g")
         .selectAll("rect")
         .data(allOperations)
@@ -179,7 +169,6 @@ export function GanttChart({ data: heats }: GanttChartProps) {
         .on("mousemove", mousemoveBar)
         .on("mouseleave", mouseleave);
 
-      // 9. Draw Bar Labels
       svg.append("g")
         .attr("class", "bar-labels")
         .selectAll("text")
@@ -199,11 +188,15 @@ export function GanttChart({ data: heats }: GanttChartProps) {
         .attr("font-weight", 500)
         .attr("fill", "white")
         .style("pointer-events", "none");
+        
+      // Adjust scroll
+      chartOutputEl.style.width = `${containerWidth}px`;
+      chartOutputEl.style.overflowX = 'auto';
+
     };
 
     drawD3Gantt();
 
-    // Redraw on window resize
     const handleResize = _.debounce(() => {
         drawD3Gantt();
     }, 250);
@@ -211,7 +204,7 @@ export function GanttChart({ data: heats }: GanttChartProps) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
 
-  }, [heats]);
+  }, [heats, timeRange]);
 
 
   if (heats.length === 0) {
@@ -245,3 +238,5 @@ export function GanttChart({ data: heats }: GanttChartProps) {
     </>
   );
 }
+
+    

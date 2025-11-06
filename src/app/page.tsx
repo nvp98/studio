@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { SteelGanttVisionIcon } from "@/components/icons";
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Stats {
     totalHeats: number;
@@ -22,6 +23,7 @@ interface Stats {
     warningCount: number;
 }
 
+export type TimeRange = 8 | 12 | 24 | 48;
 
 export default function Home() {
   const [ganttData, setGanttData] = useState<GanttHeat[]>([]);
@@ -32,6 +34,7 @@ export default function Home() {
   const [previewData, setPreviewData] = useState<ExcelRow[]>([]);
   const [cleanJson, setCleanJson] = useState<ExcelRow[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>(24);
 
 
   const resetState = () => {
@@ -211,7 +214,23 @@ export default function Home() {
           <div className="lg:col-span-2">
             <Card className="h-full">
               <CardHeader>
-                <CardTitle className="font-headline">Biểu đồ Gantt</CardTitle>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <CardTitle className="font-headline">Biểu đồ Gantt</CardTitle>
+                    <ToggleGroup 
+                        type="single" 
+                        value={String(timeRange)}
+                        onValueChange={(value) => {
+                            if (value) setTimeRange(Number(value) as TimeRange);
+                        }}
+                        aria-label="Select time range"
+                        className="mt-2 sm:mt-0"
+                    >
+                        <ToggleGroupItem value="8" aria-label="8 hours">8h</ToggleGroupItem>
+                        <ToggleGroupItem value="12" aria-label="12 hours">12h</ToggleGroupItem>
+                        <ToggleGroupItem value="24" aria-label="24 hours">24h</ToggleGroupItem>
+                        <ToggleGroupItem value="48" aria-label="48 hours">48h</ToggleGroupItem>
+                    </ToggleGroup>
+                </div>
               </CardHeader>
               <CardContent className="pl-0">
                 {isLoading ? (
@@ -219,7 +238,7 @@ export default function Home() {
                     <Loader2 className="w-12 h-12 animate-spin text-primary" />
                   </div>
                 ) : ganttData.length > 0 ? (
-                  <GanttChart data={ganttData} />
+                  <GanttChart data={ganttData} timeRange={timeRange} />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground gap-4">
                     <FileJson className="w-16 h-16" />
@@ -235,3 +254,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
