@@ -1,6 +1,6 @@
-
 import type { ExcelRow, ValidationError, Operation, GanttHeat } from "./types";
 import { groupBy } from "lodash";
+import { startOfDay } from 'date-fns';
 
 const UNIT_SEQUENCE: { [key: string]: { group: string; order: number } } = {
   KR1: { group: "KR", order: 1 },
@@ -22,16 +22,16 @@ const UNIT_SEQUENCE: { [key: string]: { group: string; order: number } } = {
   TSC2: { group: "CASTER", order: 4 },
 };
 
-function parseTimeWithDate(dateStr: string, hhmm: string, prevTime?: Date): Date | null {
-    if (!dateStr || !hhmm) return null;
+function parseTimeWithDate(dateStr: string, hhmm: string, baseDate: Date, prevTime?: Date): Date | null {
+    if (!hhmm) return null;
 
     const [hours, minutes] = hhmm.split(':').map(Number);
     if (isNaN(hours) || isNaN(minutes)) return null;
 
-    const baseDate = new Date(dateStr);
-    if (isNaN(baseDate.getTime())) return null;
+    let targetDate = dateStr ? new Date(dateStr) : baseDate;
+    if (isNaN(targetDate.getTime())) return null;
     
-    let currentTime = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hours, minutes);
+    let currentTime = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), hours, minutes);
 
     if (prevTime && currentTime < prevTime) {
         currentTime.setDate(currentTime.getDate() + 1);
@@ -43,6 +43,7 @@ function parseTimeWithDate(dateStr: string, hhmm: string, prevTime?: Date): Date
 export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[], errors: ValidationError[] } {
     const errors: ValidationError[] = [];
     const validHeats: GanttHeat[] = [];
+    const baseDate = rows.length > 0 && rows[0].dateStr ? startOfDay(new Date(rows[0].dateStr)) : startOfDay(new Date());
     
     const heats = groupBy(rows, 'heatId');
 
@@ -70,14 +71,14 @@ export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[
                 continue; // Skip this operation
             }
             
-            const startTime = parseTimeWithDate(row.dateStr, row.startStr, lastOpEndTime);
+            const startTime = parseTimeWithDate(row.dateStr, row.startStr, baseDate, lastOpEndTime);
             if (!startTime) {
                  errors.push({ heat_id: heatId, kind: 'FORMAT', unit: row.unit, message: `Thời gian bắt đầu không hợp lệ '${row.startStr}' cho đơn vị ${row.unit}.`, opIndex: i });
                  heatHasFatalError = true;
                  continue;
             }
 
-            const endTime = parseTimeWithDate(row.dateStr, row.endStr, startTime);
+            const endTime = parseTimeWithDate(row.dateStr, row.endStr, baseDate, startTime);
             if (!endTime) {
                  errors.push({ heat_id: heatId, kind: 'FORMAT', unit: row.unit, message: `Thời gian kết thúc không hợp lệ '${row.endStr}' cho đơn vị ${row.unit}.`, opIndex: i });
                  heatHasFatalError = true;
@@ -154,11 +155,16 @@ export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[
 
         if (errors.filter(e => e.heat_id === heatId && e.kind !== 'UNIT' && e.kind !== 'PLACEHOLDER').length === 0 && !hasValidationError) {
             const hasCaster = ops.some(op => op.group === 'CASTER');
+            const totalDuration = ops.reduce((acc, op) => acc + op.Duration_min, 0);
+            const totalIdleTime = ops.reduce((acc, op) => acc + (op.idleTimeMinutes || 0), 0);
+
             validHeats.push({
                 Heat_ID: heatId,
                 Steel_Grade: heatRows[0].steelGrade,
                 operations: ops,
-                isComplete: hasCaster
+                isComplete: hasCaster,
+                totalDuration,
+                totalIdleTime
             });
         }
     }

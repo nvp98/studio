@@ -17,7 +17,7 @@ export interface ExcelRow {
   steelGrade: string;
   unit: string;
   startStr: string;
-  endStr: string;
+  endStr:string;
   seqNum?: number;
   rawIndex: number; // original row index from the sheet
 }
@@ -40,6 +40,8 @@ export interface Heat {
   Steel_Grade: string;
   operations: Operation[];
   isComplete: boolean;
+  totalDuration: number;
+  totalIdleTime: number;
 }
 
 // Validated heat data ready for Gantt chart
