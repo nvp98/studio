@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle } from "lucide-react";
+import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle, Info } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { GanttChart } from "@/components/gantt-chart";
 import { ValidationErrors } from "@/components/validation-errors";
@@ -60,6 +60,7 @@ export default function Home() {
   const [timeRange, setTimeRange] = useState<TimeRange>(24);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const [selectedHeatDetails, setSelectedHeatDetails] = useState<GanttHeat | null>(null);
 
 
   const resetState = () => {
@@ -73,6 +74,7 @@ export default function Home() {
     setStats(null);
     setSelectedDate(new Date());
     setAvailableDates([]);
+    setSelectedHeatDetails(null);
   }
 
   const updateStats = (heats: GanttHeat[], errors: ValidationError[], warnings: ValidationError[]) => {
@@ -108,8 +110,14 @@ export default function Home() {
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
+    setSelectedHeatDetails(null); // Deselect heat when date changes
     filterDataByDate(date, allGanttData, validationErrors, warnings);
   }
+
+  const handleHeatSelect = (heat: GanttHeat | null) => {
+    setSelectedHeatDetails(heat);
+  }
+
 
   const detailedGradeStats = useMemo<GradeStats>(() => {
     if (filteredGanttData.length === 0) return {};
@@ -371,7 +379,12 @@ export default function Home() {
                     <Loader2 className="w-12 h-12 animate-spin text-primary" />
                   </div>
                 ) : filteredGanttData.length > 0 ? (
-                  <GanttChart data={filteredGanttData} timeRange={timeRange} key={selectedDate?.toISOString()}/>
+                  <GanttChart 
+                    data={filteredGanttData} 
+                    timeRange={timeRange} 
+                    onHeatSelect={handleHeatSelect}
+                    key={selectedDate?.toISOString()}
+                  />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground gap-4">
                     <FileJson className="w-16 h-16" />
@@ -382,7 +395,47 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            {Object.keys(detailedGradeStats).length > 0 && (
+            {selectedHeatDetails && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline flex items-center gap-2">
+                           <Info className="w-5 h-5 text-primary" />
+                           Chi tiết mẻ: {selectedHeatDetails.Heat_ID}
+                        </CardTitle>
+                        <CardDescription>
+                            Mác thép: <span className="font-semibold">{selectedHeatDetails.Steel_Grade}</span> - 
+                            Tổng thời gian xử lý: <span className="font-semibold">{selectedHeatDetails.totalDuration} phút</span> - 
+                            Tổng thời gian chờ: <span className="font-semibold">{selectedHeatDetails.totalIdleTime} phút</span>
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Công đoạn (Unit)</TableHead>
+                                    <TableHead>Bắt đầu</TableHead>
+                                    <TableHead>Kết thúc</TableHead>
+                                    <TableHead className="text-right">Thời gian xử lý (phút)</TableHead>
+                                    <TableHead className="text-right">Thời gian chờ (phút)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedHeatDetails.operations.map((op, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell className="font-medium">{op.unit}</TableCell>
+                                        <TableCell>{format(op.startTime, 'HH:mm')}</TableCell>
+                                        <TableCell>{format(op.endTime, 'HH:mm')}</TableCell>
+                                        <TableCell className="text-right">{op.Duration_min}</TableCell>
+                                        <TableCell className="text-right">{op.idleTimeMinutes ? op.idleTimeMinutes : '-'}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
+
+            {Object.keys(detailedGradeStats).length > 0 && !selectedHeatDetails && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Báo cáo chi tiết theo mác thép</CardTitle>
@@ -423,8 +476,3 @@ export default function Home() {
     </div>
   );
 }
-
-
-    
-
-    

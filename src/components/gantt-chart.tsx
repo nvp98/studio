@@ -11,13 +11,14 @@ import { format } from 'date-fns';
 interface GanttChartProps {
   data: GanttHeat[];
   timeRange: TimeRange;
+  onHeatSelect: (heat: GanttHeat | null) => void;
 }
 
 const UNIT_ORDER = [
   "KR1", "KR2", "BOF1", "BOF2", "BOF3", "BOF4", "BOF5", "LF1", "LF2", "LF3", "LF4", "LF5", "BCM1", "BCM2", "BCM3", "TSC1", "TSC2"
 ];
 
-export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
+export function GanttChart({ data: heats, timeRange, onHeatSelect }: GanttChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -28,13 +29,14 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
+    const heatData = svg.selectAll<SVGRectElement, Operation & { Heat_ID: string }>("rect.bar").data();
     const heatColorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(heats.map(h => h.Heat_ID));
 
     // Update bars
     svg.selectAll("rect.bar")
       .transition().duration(300)
-      .attr("fill", d => selectedHeatId === null || (d as any).Heat_ID === selectedHeatId ? heatColorScale((d as any).Heat_ID) : "#cccccc")
-      .style("opacity", d => selectedHeatId === null || (d as any).Heat_ID === selectedHeatId ? 1 : 0.5);
+      .attr("fill", d => selectedHeatId === null || d.Heat_ID === selectedHeatId ? heatColorScale(d.Heat_ID) : "#cccccc")
+      .style("opacity", d => selectedHeatId === null || d.Heat_ID === selectedHeatId ? 1 : 0.5);
 
     // Update labels
     svg.selectAll("text.bar-label")
@@ -112,6 +114,7 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
         .on("click", (event) => {
             if (event.target === event.currentTarget) {
                 setSelectedHeatId(null);
+                onHeatSelect(null);
             }
         });
       
@@ -156,7 +159,15 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
 
       const handleBarClick = (event: MouseEvent, d: any) => {
           event.stopPropagation();
-          setSelectedHeatId(prevId => prevId === d.Heat_ID ? null : d.Heat_ID);
+          const newSelectedId = selectedHeatId === d.Heat_ID ? null : d.Heat_ID;
+          setSelectedHeatId(newSelectedId);
+
+          if (newSelectedId) {
+            const selectedHeatData = heats.find(h => h.Heat_ID === newSelectedId);
+            onHeatSelect(selectedHeatData || null);
+          } else {
+            onHeatSelect(null);
+          }
       }
 
       const mouseover = () => tooltipEl.style("opacity", 1);
@@ -253,7 +264,14 @@ export function GanttChart({ data: heats, timeRange }: GanttChartProps) {
 
     };
 
+    // Store current scroll position before redrawing
+    const scrollLeft = chartContainerRef.current?.scrollLeft;
     drawD3Gantt();
+     // Restore scroll position after redrawing
+    if(chartContainerRef.current && scrollLeft) {
+      chartContainerRef.current.scrollLeft = scrollLeft;
+    }
+
 
     const handleResize = _.debounce(() => {
         drawD3Gantt();
