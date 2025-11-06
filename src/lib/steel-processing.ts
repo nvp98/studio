@@ -29,12 +29,12 @@ const UNIT_SEQUENCE: { [key: string]: { group: string; order: number } } = {
 
 const getGroup = (unit: string): string => {
   if (!unit) return "UNKNOWN";
-  const upperUnit = unit.toUpperCase().trim();
+  const upperUnit = String(unit).toUpperCase().trim();
   return UNIT_SEQUENCE[upperUnit]?.group || "UNKNOWN";
 }
 const getSequenceOrder = (unit: string): number => {
     if (!unit) return 99;
-    const upperUnit = unit.toUpperCase().trim();
+    const upperUnit = String(unit).toUpperCase().trim();
     return UNIT_SEQUENCE[upperUnit]?.order || 99;
 }
 
@@ -50,22 +50,21 @@ function parseTime(
   if (!timeValue && timeValue !== 0) return null;
 
   let parsedDate: Date;
+  const datePart = new Date(baseDate);
 
   if (timeValue instanceof Date) {
-    parsedDate = timeValue;
+    parsedDate = new Date(datePart.getFullYear(), datePart.getMonth(), datePart.getDate(), timeValue.getHours(), timeValue.getMinutes(), timeValue.getSeconds());
   } else if (typeof timeValue === "string") {
     const timeParts = timeValue.match(/(\d+):(\d+)(?::(\d+))?/);
     if (!timeParts) return null;
 
     const [, hours, minutes, seconds] = timeParts.map(part => parseInt(part, 10));
-    parsedDate = new Date(baseDate);
-    parsedDate.setHours(hours, minutes, seconds || 0, 0);
+    parsedDate = new Date(datePart.getFullYear(), datePart.getMonth(), datePart.getDate(), hours, minutes, seconds || 0);
   } else if (typeof timeValue === "number") {
     // Handle Excel's time as a fraction of a day
-    const date = XLSX.SSF.parse_date_code(timeValue);
-    if (!date) return null;
-    parsedDate = new Date(baseDate);
-    parsedDate.setHours(date.H, date.M, date.S, 0);
+    const excelDate = XLSX.SSF.parse_date_code(timeValue);
+    if (!excelDate) return null;
+    parsedDate = new Date(datePart.getFullYear(), datePart.getMonth(), datePart.getDate(), excelDate.H, excelDate.M, excelDate.S);
   } else {
     return null;
   }
@@ -79,7 +78,7 @@ function parseTime(
 }
 
 /**
- * Finds a key in an object in a case-insensitive way.
+ * Finds a key in an object in a case-insensitive way and trims whitespace.
  * @param obj The object to search in.
  * @param key The key to find.
  * @returns The value of the key if found, otherwise undefined.
@@ -99,7 +98,7 @@ function groupByHeatID(data: RawOperation[]): GroupedData {
   const grouped: GroupedData = {};
   data.forEach((row) => {
     const heatID = findKey(row, 'Heat_ID');
-    if (!heatID) return;
+    if (heatID === undefined || heatID === null || String(heatID).trim() === '') return;
 
     const heatIDStr = String(heatID);
     if (!grouped[heatIDStr]) {
@@ -110,12 +109,18 @@ function groupByHeatID(data: RawOperation[]): GroupedData {
       };
     }
     
-    grouped[heatIDStr].operations.push({
+    const operation: Partial<RawOperation> = {
       unit: findKey(row, 'unit'),
       Start_Time: findKey(row, 'Start_Time'),
       End_Time: findKey(row, 'End_Time'),
       Duration_min: findKey(row, 'Duration_min'),
-    });
+      Date: findKey(row, 'Date'),
+      sequence_number: findKey(row, 'sequence_number')
+    };
+
+    if (operation.unit !== 0 && operation.unit !== '0') {
+      grouped[heatIDStr].operations.push(operation);
+    }
   });
   return grouped;
 }
@@ -123,8 +128,7 @@ function groupByHeatID(data: RawOperation[]): GroupedData {
 function validateData(groupedData: GroupedData): ProcessingResult {
   const validHeats: GanttHeat[] = [];
   const validationErrors: ValidationError[] = [];
-  const baseDate = new Date();
-  baseDate.setHours(0, 0, 0, 0);
+  
 
   Object.values(groupedData).forEach((heat) => {
     const heatErrors: string[] = [];
@@ -132,11 +136,27 @@ function validateData(groupedData: GroupedData): ProcessingResult {
 
     const processedOps: Operation[] = [];
     let lastOpEndTime: Date | null = null;
-    
-    // Sort operations by sequence order first
+    let baseDate: Date | null = null;
+
     const sortedRawOps = heat.operations
-      .map(op => ({ ...op, sequence_order: getSequenceOrder(op.unit!) }))
+      .map(op => ({ ...op, sequence_order: op.sequence_number || getSequenceOrder(op.unit!) }))
       .sort((a, b) => a.sequence_order - b.sequence_order);
+
+    if (sortedRawOps.length > 0 && sortedRawOps[0].Date) {
+        if (sortedRawOps[0].Date instanceof Date) {
+            baseDate = sortedRawOps[0].Date;
+        } else if (typeof sortedRawOps[0].Date === 'string' || typeof sortedRawOps[0].Date === 'number') {
+            const d = new Date(sortedRawOps[0].Date);
+            if (!isNaN(d.getTime())) {
+                baseDate = d;
+            }
+        }
+    }
+    if (!baseDate) {
+      baseDate = new Date(); // Fallback to today
+    }
+    baseDate.setHours(0, 0, 0, 0);
+
 
     for (const rawOp of sortedRawOps) {
         if (!rawOp.unit || (!rawOp.Start_Time && rawOp.Start_Time !== 0) || (!rawOp.End_Time && rawOp.End_Time !== 0)) {
@@ -144,15 +164,18 @@ function validateData(groupedData: GroupedData): ProcessingResult {
             hasFatalError = true;
             continue;
         }
+        
+        const currentBaseDate = rawOp.Date instanceof Date ? rawOp.Date : baseDate;
+        currentBaseDate.setHours(0,0,0,0);
 
-        const startTime = parseTime(rawOp.Start_Time, baseDate, lastOpEndTime);
+        const startTime = parseTime(rawOp.Start_Time, currentBaseDate, lastOpEndTime);
         if (!startTime) {
             heatErrors.push(`${rawOp.unit}: Invalid start time format: ${rawOp.Start_Time}`);
             hasFatalError = true;
             continue;
         }
 
-        const endTime = parseTime(rawOp.End_Time, baseDate, startTime);
+        const endTime = parseTime(rawOp.End_Time, currentBaseDate, startTime);
         if (!endTime) {
             heatErrors.push(`${rawOp.unit}: Invalid end time format: ${rawOp.End_Time}`);
             hasFatalError = true;
@@ -165,9 +188,9 @@ function validateData(groupedData: GroupedData): ProcessingResult {
         }
         
         processedOps.push({
-            unit: rawOp.unit,
-            group: getGroup(rawOp.unit),
-            sequence_order: getSequenceOrder(rawOp.unit),
+            unit: String(rawOp.unit),
+            group: getGroup(String(rawOp.unit)),
+            sequence_order: rawOp.sequence_order,
             Start_Time: String(rawOp.Start_Time),
             End_Time: String(rawOp.End_Time),
             startTime,
@@ -202,7 +225,7 @@ function validateData(groupedData: GroupedData): ProcessingResult {
     } else {
       validHeats.push({
         Heat_ID: heat.Heat_ID,
-        Steel_Grade: heat.Steel_Grade,
+        Steel_Grade: String(heat.Steel_Grade),
         operations: processedOps,
       });
     }
@@ -220,7 +243,7 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
           throw new Error("Failed to read file.");
         }
         const buffer = event.target.result;
-        const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+        const workbook = XLSX.read(buffer, { type: "array", cellDates: true, dateNF: 'yyyy-mm-dd' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
@@ -241,8 +264,7 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
         }
         
         const rawData: RawOperation[] = XLSX.utils.sheet_to_json(worksheet, {
-            raw: false,
-            dateNF: 'HH:mm:ss' 
+            raw: false, // This ensures dates and times are parsed
         });
 
         if (!Array.isArray(rawData)) {

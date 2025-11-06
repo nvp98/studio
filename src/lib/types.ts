@@ -6,6 +6,8 @@ export interface RawOperation {
   Start_Time: any; // Can be string, number, or Date
   End_Time: any; // Can be string, number, or Date
   Duration_min?: number;
+  Date?: any;
+  sequence_number?: number;
 }
 
 // Processed operation with calculated fields
