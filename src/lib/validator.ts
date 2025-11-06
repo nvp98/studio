@@ -16,6 +16,8 @@ const UNIT_SEQUENCE: { [key: string]: { group: string; order: number } } = {
   LF4: { group: "LF", order: 3 },
   LF5: { group: "LF", order: 3 },
   BCM1: { group: "CASTER", order: 4 },
+  BCM2: { group: "CASTER", order: 4 },
+  BCM3: { group: "CASTER", order: 4 },
   TSC1: { group: "CASTER", order: 4 },
   TSC2: { group: "CASTER", order: 4 },
 };
@@ -29,10 +31,8 @@ function parseTimeWithDate(dateStr: string, hhmm: string, prevTime?: Date): Date
     const baseDate = new Date(dateStr);
     if (isNaN(baseDate.getTime())) return null;
     
-    // Create current time based on the given date and time parts
     let currentTime = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hours, minutes);
 
-    // Handle overnight rollover: if current time is earlier than previous time, add a day
     if (prevTime && currentTime < prevTime) {
         currentTime.setDate(currentTime.getDate() + 1);
     }
@@ -66,27 +66,27 @@ export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[
             const unitInfo = UNIT_SEQUENCE[row.unit.toUpperCase()];
             
             if (!unitInfo) {
-                errors.push({ heat_id: heatId, kind: 'UNIT', message: `Đơn vị không xác định: '${row.unit}'.`, opIndex: i });
+                errors.push({ heat_id: heatId, kind: 'UNIT', unit: row.unit, message: `Đơn vị không xác định: '${row.unit}'.`, opIndex: i });
                 continue; // Skip this operation
             }
             
             const startTime = parseTimeWithDate(row.dateStr, row.startStr, lastOpEndTime);
             if (!startTime) {
-                 errors.push({ heat_id: heatId, kind: 'FORMAT', message: `Thời gian bắt đầu không hợp lệ '${row.startStr}' cho đơn vị ${row.unit}.`, opIndex: i });
+                 errors.push({ heat_id: heatId, kind: 'FORMAT', unit: row.unit, message: `Thời gian bắt đầu không hợp lệ '${row.startStr}' cho đơn vị ${row.unit}.`, opIndex: i });
                  heatHasFatalError = true;
                  continue;
             }
 
             const endTime = parseTimeWithDate(row.dateStr, row.endStr, startTime);
             if (!endTime) {
-                 errors.push({ heat_id: heatId, kind: 'FORMAT', message: `Thời gian kết thúc không hợp lệ '${row.endStr}' cho đơn vị ${row.unit}.`, opIndex: i });
+                 errors.push({ heat_id: heatId, kind: 'FORMAT', unit: row.unit, message: `Thời gian kết thúc không hợp lệ '${row.endStr}' cho đơn vị ${row.unit}.`, opIndex: i });
                  heatHasFatalError = true;
                  continue;
             }
             
             const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
             if (duration < 0) {
-                errors.push({ heat_id: heatId, kind: 'TIME', message: `Thời gian kết thúc phải sau thời gian bắt đầu cho đơn vị ${row.unit}.`, opIndex: i });
+                errors.push({ heat_id: heatId, kind: 'TIME', unit: row.unit, message: `Thời gian kết thúc phải sau thời gian bắt đầu cho đơn vị ${row.unit}.`, opIndex: i });
                 heatHasFatalError = true;
             }
 
@@ -98,7 +98,7 @@ export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[
                 sequence_order: row.seqNum ?? unitInfo.order,
                 startTime,
                 endTime,
-                Duration_min: duration,
+                Duration_min: Math.round(duration),
                 idleTimeMinutes: Math.round(idleTime),
             });
             lastOpEndTime = endTime;
@@ -113,19 +113,24 @@ export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[
         });
 
 
-        // Routing validation
-        const bofOp = ops.find(op => op.group === 'BOF');
-        const lfOp = ops.find(op => op.group === 'LF');
+        // === Final Validation Rules on Sorted Operations ===
+        let hasValidationError = false;
+        
+        // Rule: A heat can't be on multiple units of the same group (e.g. BOF1 and BOF2)
+        const groupCounts = ops.reduce((acc, op) => {
+            acc[op.group] = (acc[op.group] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
 
-        if (lfOp && !bofOp) {
-             errors.push({ heat_id: heatId, kind: 'ROUTING', message: 'Tìm thấy công đoạn LF nhưng không có công đoạn BOF trước đó.' });
+        for (const group in groupCounts) {
+            if (groupCounts[group] > 1) {
+                const unitsInGroup = ops.filter(op => op.group === group).map(op => op.unit).join(', ');
+                errors.push({ heat_id: heatId, kind: 'ROUTING', message: `Mẻ không thể chạy trên nhiều thiết bị cùng nhóm ${group}: ${unitsInGroup}.` });
+                hasValidationError = true;
+            }
         }
-        if(lfOp && bofOp && lfOp.startTime < bofOp.endTime) {
-            errors.push({ heat_id: heatId, kind: 'ROUTING', message: 'Công đoạn LF bắt đầu trước khi công đoạn BOF kết thúc.' });
-        }
 
-
-        // Final check for timing overlaps between sorted operations
+        // Rule: Subsequent operations must start after the previous one ends.
         for (let i = 1; i < ops.length; i++) {
             if (ops[i].startTime < ops[i - 1].endTime) {
                 errors.push({ 
@@ -133,11 +138,21 @@ export function validateAndTransform(rows: ExcelRow[]): { validHeats: GanttHeat[
                     kind: 'TIME', 
                     message: `Chồng chéo thời gian: ${ops[i].unit} bắt đầu trước khi ${ops[i-1].unit} kết thúc.` 
                 });
+                hasValidationError = true;
             }
+        }
+        
+        // Rule: LF requires a preceding BOF.
+        const lfOp = ops.find(op => op.group === 'LF');
+        const bofOp = ops.find(op => op.group === 'BOF');
+
+        if (lfOp && !bofOp) {
+             errors.push({ heat_id: heatId, kind: 'ROUTING', unit: lfOp.unit, message: `Tìm thấy công đoạn LF (${lfOp.unit}) nhưng không có công đoạn BOF trước đó.` });
+             hasValidationError = true;
         }
 
 
-        if (errors.filter(e => e.heat_id === heatId).length === 0) {
+        if (errors.filter(e => e.heat_id === heatId && e.kind !== 'UNIT' && e.kind !== 'PLACEHOLDER').length === 0 && !hasValidationError) {
             const hasCaster = ops.some(op => op.group === 'CASTER');
             validHeats.push({
                 Heat_ID: heatId,
