@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -148,7 +149,7 @@ export default function Home() {
                  <Card>
                     <CardHeader>
                         <CardTitle>Xem trước dữ liệu (20 dòng đầu)</CardTitle>
-                        <CardDescription>Dữ liệu đã được chuẩn hóa từ file Excel.</CardDescription>
+                        <CardDescription>Dữ liệu đã được chuẩn hóa từ file đã tải lên.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="max-h-60 overflow-y-auto">
@@ -224,7 +225,7 @@ export default function Home() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground gap-4">
                     <FileJson className="w-16 h-16" />
-                    <p className="text-center">Tải lên tệp Excel để tạo biểu đồ Gantt.</p>
+                    <p className="text-center">Tải lên tệp Excel hoặc CSV để tạo biểu đồ Gantt.</p>
                      <p className="text-xs text-center max-w-sm">Hỗ trợ các cột: Date, Heat_ID, Steel_Grade, Unit, Start_Time, End_Time, sequence_number (tùy chọn).</p>
                   </div>
                 )}

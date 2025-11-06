@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -54,7 +55,7 @@ export function FileUploader({ onFileProcess, isLoading }: FileUploaderProps) {
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Nhập lịch sản xuất</CardTitle>
-        <CardDescription>Tải lên lịch sản xuất thép (.xlsx, .xls)</CardDescription>
+        <CardDescription>Tải lên lịch sản xuất thép (.xlsx, .xls, .csv)</CardDescription>
       </CardHeader>
       <CardContent>
         <form id="form-file-upload" onDragEnter={handleDrag} onSubmit={(e) => e.preventDefault()} className="h-full w-full">
@@ -64,7 +65,7 @@ export function FileUploader({ onFileProcess, isLoading }: FileUploaderProps) {
             id="input-file-upload"
             className="hidden"
             onChange={handleFileChange}
-            accept=".xlsx, .xls"
+            accept=".xlsx, .xls, .csv"
             disabled={isLoading}
             />
             <label 
@@ -76,7 +77,7 @@ export function FileUploader({ onFileProcess, isLoading }: FileUploaderProps) {
                     <p className="mb-2 text-sm text-muted-foreground">
                         <span className="font-semibold">Nhấn để tải lên</span> hoặc kéo và thả
                     </p>
-                    <p className="text-xs text-muted-foreground">XLSX, XLS (tối đa 5MB)</p>
+                    <p className="text-xs text-muted-foreground">XLSX, XLS, CSV (tối đa 5MB)</p>
                 </div>
                  {dragActive && <div className="absolute w-full h-full" onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}></div> }
             </label>
@@ -87,7 +88,7 @@ export function FileUploader({ onFileProcess, isLoading }: FileUploaderProps) {
           ) : (
             <Upload className="w-4 h-4 mr-2" />
           )}
-          {isLoading ? "Đang xử lý..." : "Hoặc chọn tệp Excel"}
+          {isLoading ? "Đang xử lý..." : "Hoặc chọn tệp"}
         </Button>
       </CardContent>
     </Card>
