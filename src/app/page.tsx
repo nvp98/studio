@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle, Info } from "lucide-react";
+import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle, Info, ChevronDown } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { GanttChart } from "@/components/gantt-chart";
 import { ValidationErrors } from "@/components/validation-errors";
@@ -20,6 +20,7 @@ import { format, isSameDay, startOfDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { groupBy } from "lodash";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 
 interface Stats {
@@ -61,6 +62,35 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const [selectedHeatDetails, setSelectedHeatDetails] = useState<GanttHeat | null>(null);
+  const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set());
+
+
+  const availableGrades = useMemo(() => {
+    return [...new Set(allGanttData.map(h => h.Steel_Grade))].sort();
+  }, [allGanttData]);
+
+
+  const filterAndSetData = (date: Date | undefined, grades: Set<string>) => {
+    if (!allGanttData.length) return;
+    
+    let tempFilteredData = allGanttData;
+
+    // Filter by date
+    if (date) {
+      const dayStart = startOfDay(date);
+      tempFilteredData = tempFilteredData.filter(heat => 
+        heat.operations.some(op => isSameDay(op.startTime, dayStart) || isSameDay(op.endTime, dayStart))
+      );
+    }
+    
+    // Filter by steel grade
+    if (grades.size > 0) {
+      tempFilteredData = tempFilteredData.filter(heat => grades.has(heat.Steel_Grade));
+    }
+    
+    setFilteredGanttData(tempFilteredData);
+    updateStats(tempFilteredData, validationErrors, warnings);
+  };
 
 
   const resetState = () => {
@@ -75,6 +105,7 @@ export default function Home() {
     setSelectedDate(new Date());
     setAvailableDates([]);
     setSelectedHeatDetails(null);
+    setSelectedGrades(new Set());
   }
 
   const updateStats = (heats: GanttHeat[], errors: ValidationError[], warnings: ValidationError[]) => {
@@ -94,25 +125,24 @@ export default function Home() {
       });
   }
 
-  const filterDataByDate = (date: Date | undefined, data: GanttHeat[], errors: ValidationError[], warnings: ValidationError[]) => {
-      if (!date) {
-        setFilteredGanttData(data);
-        updateStats(data, errors, warnings);
-        return;
-      }
-      const dayStart = startOfDay(date);
-      const filtered = data.filter(heat => 
-          heat.operations.some(op => isSameDay(op.startTime, dayStart) || isSameDay(op.endTime, dayStart))
-      );
-      setFilteredGanttData(filtered);
-      updateStats(filtered, errors, warnings);
-  };
-
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
     setSelectedHeatDetails(null); // Deselect heat when date changes
-    filterDataByDate(date, allGanttData, validationErrors, warnings);
+    filterAndSetData(date, selectedGrades);
   }
+
+  const handleGradeSelect = (grade: string) => {
+    const newSelectedGrades = new Set(selectedGrades);
+    if (newSelectedGrades.has(grade)) {
+      newSelectedGrades.delete(grade);
+    } else {
+      newSelectedGrades.add(grade);
+    }
+    setSelectedGrades(newSelectedGrades);
+    setSelectedHeatDetails(null);
+    filterAndSetData(selectedDate, newSelectedGrades);
+  };
+
 
   const handleHeatSelect = (heat: GanttHeat | null) => {
     setSelectedHeatDetails(heat);
@@ -174,7 +204,7 @@ export default function Home() {
       
       const initialDate = dates.length > 0 ? dates[0] : new Date();
       setSelectedDate(initialDate);
-      filterDataByDate(initialDate, validHeats, allErrors, allWarnings);
+      filterAndSetData(initialDate, new Set());
 
 
     } catch (e: any) {
@@ -333,7 +363,7 @@ export default function Home() {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <CardTitle className="font-headline">Biểu đồ Gantt</CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                          <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -356,6 +386,36 @@ export default function Home() {
                                 />
                             </PopoverContent>
                         </Popover>
+                        
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-[240px] justify-between" disabled={availableGrades.length === 0}>
+                                    <span>
+                                        {selectedGrades.size === 0
+                                        ? "Chọn mác thép"
+                                        : selectedGrades.size === 1
+                                        ? [...selectedGrades][0]
+                                        : `${selectedGrades.size} mác thép đã chọn`}
+                                    </span>
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-[240px]">
+                                <DropdownMenuLabel>Lọc theo mác thép</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {availableGrades.map(grade => (
+                                <DropdownMenuCheckboxItem
+                                    key={grade}
+                                    checked={selectedGrades.has(grade)}
+                                    onSelect={(e) => e.preventDefault()}
+                                    onClick={() => handleGradeSelect(grade)}
+                                >
+                                    {grade}
+                                </DropdownMenuCheckboxItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
 
                         <ToggleGroup 
                             type="single" 
@@ -383,7 +443,7 @@ export default function Home() {
                     data={filteredGanttData} 
                     timeRange={timeRange} 
                     onHeatSelect={handleHeatSelect}
-                    key={selectedDate?.toISOString()}
+                    key={`${selectedDate?.toISOString()}-${[...selectedGrades].join('-')}`}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground gap-4">
@@ -476,3 +536,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
