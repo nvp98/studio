@@ -185,6 +185,21 @@ export default function Home() {
               </Card>
             )}
 
+            {stats && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 font-headline"><BarChart2 className="w-5 h-5" />Báo cáo tổng thể cho ngày {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : ''}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                        <p>Tổng số mẻ: <span className="font-bold">{stats.totalHeats}</span></p>
+                        <p>Tổng số công đoạn: <span className="font-bold">{stats.totalOperations}</span></p>
+                        <p>Tổng thời gian chờ (phút): <span className="font-bold">{stats.totalIdleMinutes}</span></p>
+                        <p>Số lỗi: <span className="font-bold text-destructive">{stats.errorCount}</span></p>
+                        <p>Số cảnh báo: <span className="font-bold text-yellow-500">{stats.warningCount}</span></p>
+                    </CardContent>
+                </Card>
+            )}
+
             {previewData.length > 0 && (
                  <Card>
                     <CardHeader>
@@ -214,21 +229,6 @@ export default function Home() {
                                 </TableBody>
                             </Table>
                         </div>
-                    </CardContent>
-                </Card>
-            )}
-            
-            {stats && (
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline"><BarChart2 className="w-5 h-5" />Báo cáo tổng thể cho ngày {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : ''}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                        <p>Tổng số mẻ: <span className="font-bold">{stats.totalHeats}</span></p>
-                        <p>Tổng số công đoạn: <span className="font-bold">{stats.totalOperations}</span></p>
-                        <p>Tổng thời gian chờ (phút): <span className="font-bold">{stats.totalIdleMinutes}</span></p>
-                        <p>Số lỗi: <span className="font-bold text-destructive">{stats.errorCount}</span></p>
-                        <p>Số cảnh báo: <span className="font-bold text-yellow-500">{stats.warningCount}</span></p>
                     </CardContent>
                 </Card>
             )}
