@@ -13,6 +13,7 @@ import {
   Line,
 } from "recharts";
 import { useMemo } from "react";
+import * as d3 from "d3";
 import type { GanttHeat } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import _ from "lodash";
@@ -24,19 +25,6 @@ interface GanttChartProps {
 const UNIT_ORDER = [
   "KR1", "KR2", "BOF1", "BOF2", "BOF3", "BOF4", "BOF5", "LF1", "LF2", "LF3", "LF4", "LF5", "BCM1", "TSC1", "TSC2"
 ].reverse();
-
-// D3's Tableau10 color scheme
-const COLORS = [
-  "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-  "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab"
-];
-
-function hexToRgba(hex: string, alpha: number): string {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -103,7 +91,7 @@ export function GanttChart({ data }: GanttChartProps) {
 
     const heatColorMap = new Map<string, string>();
     const heatIDs = data.map(h => h.Heat_ID);
-    const colorScale = d3.scaleOrdinal(COLORS).domain(heatIDs);
+    const colorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(heatIDs);
     data.forEach(heat => {
       heatColorMap.set(heat.Heat_ID, colorScale(heat.Heat_ID));
     });
@@ -202,7 +190,7 @@ export function GanttChart({ data }: GanttChartProps) {
             const color = heatToColor.get(heat.Heat_ID) || '#000000';
             return (
                 <Bar
-                    key={`${heat.Heat_ID}_duration_bar`}
+                    key={`${heat.Heat_ID}_duration`}
                     dataKey={`${heat.Heat_ID}_duration`}
                     stackId="a"
                     fill={color}
