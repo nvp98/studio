@@ -118,7 +118,7 @@ function groupByHeatID(data: RawOperation[]): GroupedData {
       sequence_number: findKey(row, 'sequence_number')
     };
 
-    if (operation.unit !== 0 && operation.unit !== '0') {
+    if (operation.unit && operation.unit !== 0 && operation.unit !== '0') {
       grouped[heatIDStr].operations.push(operation);
     }
   });
@@ -265,6 +265,7 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
         
         const rawData: RawOperation[] = XLSX.utils.sheet_to_json(worksheet, {
             raw: false, // This ensures dates and times are parsed
+            dateNF: 'HH:mm:ss',
         });
 
         if (!Array.isArray(rawData)) {
