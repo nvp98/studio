@@ -28,10 +28,12 @@ const UNIT_SEQUENCE: { [key: string]: { group: string; order: number } } = {
 };
 
 const getGroup = (unit: string): string => {
+  if (!unit) return "UNKNOWN";
   const upperUnit = unit.toUpperCase().trim();
   return UNIT_SEQUENCE[upperUnit]?.group || "UNKNOWN";
 }
 const getSequenceOrder = (unit: string): number => {
+    if (!unit) return 99;
     const upperUnit = unit.toUpperCase().trim();
     return UNIT_SEQUENCE[upperUnit]?.order || 99;
 }
@@ -45,7 +47,7 @@ function parseTime(
   baseDate: Date,
   potentialPrevDate: Date | null
 ): Date | null {
-  if (!timeValue) return null;
+  if (!timeValue && timeValue !== 0) return null;
 
   let parsedDate: Date;
 
@@ -55,12 +57,13 @@ function parseTime(
     const timeParts = timeValue.match(/(\d+):(\d+)(?::(\d+))?/);
     if (!timeParts) return null;
 
-    const [, hours, minutes, seconds] = timeParts.map(Number);
+    const [, hours, minutes, seconds] = timeParts.map(part => parseInt(part, 10));
     parsedDate = new Date(baseDate);
     parsedDate.setHours(hours, minutes, seconds || 0, 0);
   } else if (typeof timeValue === "number") {
     // Handle Excel's time as a fraction of a day
     const date = XLSX.SSF.parse_date_code(timeValue);
+    if (!date) return null;
     parsedDate = new Date(baseDate);
     parsedDate.setHours(date.H, date.M, date.S, 0);
   } else {
@@ -77,8 +80,12 @@ function parseTime(
 
 function findKey(obj: any, key: string) {
     const keyLower = key.toLowerCase();
-    const foundKey = Object.keys(obj).find(k => k.toLowerCase().trim() === keyLower);
-    return foundKey ? obj[foundKey] : undefined;
+    for (const k in obj) {
+        if (k.toLowerCase().trim() === keyLower) {
+            return obj[k];
+        }
+    }
+    return undefined;
 }
 
 
@@ -126,7 +133,7 @@ function validateData(groupedData: GroupedData): ProcessingResult {
       .sort((a, b) => a.sequence_order - b.sequence_order);
 
     for (const rawOp of sortedRawOps) {
-        if (!rawOp.unit || !rawOp.Start_Time || !rawOp.End_Time) {
+        if (!rawOp.unit || (!rawOp.Start_Time && rawOp.Start_Time !== 0) || (!rawOp.End_Time && rawOp.End_Time !== 0)) {
             heatErrors.push(`(Unit: ${rawOp.unit || 'N/A'}) has missing unit, start time, or end time.`);
             hasFatalError = true;
             continue;
@@ -153,8 +160,8 @@ function validateData(groupedData: GroupedData): ProcessingResult {
         
         processedOps.push({
             unit: rawOp.unit,
-            group: getGroup(rawOp.unit),
-            sequence_order: getSequenceOrder(rawOp.unit),
+            group: getGroup(rawAp.unit),
+            sequence_order: getSequenceOrder(rawAp.unit),
             Start_Time: String(rawOp.Start_Time),
             End_Time: String(rawOp.End_Time),
             startTime,
@@ -166,7 +173,7 @@ function validateData(groupedData: GroupedData): ProcessingResult {
     }
 
     if (hasFatalError) {
-        validationErrors.push({ heat_id: heat.Heat_ID, errors: heatErrors });
+        if(heatErrors.length > 0) validationErrors.push({ heat_id: heat.Heat_ID, errors: heatErrors });
         return;
     }
 
@@ -211,11 +218,13 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        if (!jsonFromSheet || jsonFromSheet.length === 0) {
-            throw new Error("The Excel sheet is empty or invalid.");
+        const jsonFromSheet: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!jsonFromSheet || jsonFromSheet.length < 2) {
+            throw new Error("The Excel sheet is empty or has no data.");
         }
-        const header: string[] = (jsonFromSheet[0] as string[]).map(h => h ? String(h).trim() : '');
+        
+        const header: string[] = jsonFromSheet[0].map(h => h ? String(h).trim() : '');
         const lowerCaseHeader = header.map(h => h.toLowerCase());
         
         const requiredColumns = ["Heat_ID", "Steel_Grade", "unit", "Start_Time", "End_Time"];
@@ -224,12 +233,15 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
         if (missingColumns.length > 0) {
             throw new Error(`Missing required columns in Excel file: ${missingColumns.join(', ')}`);
         }
-
-        // Convert to JSON with specific date format for time-only cells
+        
         const rawData: RawOperation[] = XLSX.utils.sheet_to_json(worksheet, {
-            raw: false, // Use formatted strings
-            dateNF: 'HH:mm:ss' // Format for dates/times
+            raw: false,
+            dateNF: 'HH:mm:ss' 
         });
+
+        if (!Array.isArray(rawData)) {
+            throw new Error("Failed to convert sheet to JSON.");
+        }
 
         const groupedData = groupByHeatID(rawData);
         const result = validateData(groupedData);
