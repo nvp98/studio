@@ -112,7 +112,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b bg-background/80 backdrop-blur-sm md:px-6">
+      <header className="sticky top-0 z-20 flex items-center h-16 px-4 border-b bg-background/80 backdrop-blur-sm md:px-6">
         <div className="flex items-center gap-3">
             <SteelGanttVisionIcon className="w-8 h-8 text-primary" />
             <h1 className="text-2xl font-bold tracking-tighter font-headline">
