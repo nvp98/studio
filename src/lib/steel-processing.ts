@@ -211,7 +211,11 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        const header: string[] = (XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[]).map(h => h ? String(h).trim() : '');
+        const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        if (!jsonFromSheet || jsonFromSheet.length === 0) {
+            throw new Error("The Excel sheet is empty or invalid.");
+        }
+        const header: string[] = (jsonFromSheet[0] as string[]).map(h => h ? String(h).trim() : '');
         const lowerCaseHeader = header.map(h => h.toLowerCase());
         
         const requiredColumns = ["Heat_ID", "Steel_Grade", "unit", "Start_Time", "End_Time"];
