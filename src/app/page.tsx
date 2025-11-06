@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2 } from "lucide-react";
+import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { GanttChart } from "@/components/gantt-chart";
 import { ValidationErrors } from "@/components/validation-errors";
@@ -69,7 +69,7 @@ export default function Home() {
       setStats({
           totalHeats: validHeats.length,
           totalOperations: validHeats.reduce((acc, heat) => acc + heat.operations.length, 0),
-          totalIdleMinutes: totalIdle,
+          totalIdleMinutes: Math.round(totalIdle),
           errorCount: allErrors.length,
           warningCount: allWarnings.length,
       });
@@ -124,6 +124,12 @@ export default function Home() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-1">
             <FileUploader onFileProcess={handleFileProcess} isLoading={isLoading} />
+            <a href="/sample-data.xlsx" download="sample-data.xlsx">
+              <Button variant="outline" className="w-full">
+                <FileDown className="mr-2 h-4 w-4" /> Tải về tệp mẫu
+              </Button>
+            </a>
+
              {error && (
               <Card className="border-destructive">
                 <CardHeader>
@@ -186,14 +192,14 @@ export default function Home() {
                 </Card>
             )}
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
                 <Button onClick={exportToJson} disabled={cleanJson.length === 0} variant="outline" className="w-full">
                     <Download className="mr-2 h-4 w-4" /> Export Clean JSON
                 </Button>
                 <Button onClick={exportErrorsToCsv} disabled={validationErrors.length === 0 && warnings.length === 0} variant="outline" className="w-full">
                     <ListX className="mr-2 h-4 w-4" /> Export Error Log
                 </Button>
-                 <Button onClick={resetState} variant="destructive" className="w-full">
+                 <Button onClick={resetState} variant="destructive" className="w-full col-span-2">
                     <Trash2 className="mr-2 h-4 w-4" /> Reset
                 </Button>
             </div>
