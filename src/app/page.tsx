@@ -6,7 +6,6 @@ import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, Fil
 import { FileUploader } from "@/components/file-uploader";
 import { GanttChart } from "@/components/gantt-chart";
 import { ValidationErrors } from "@/components/validation-errors";
-import { PredictDuration } from "@/components/predict-duration";
 import { parseExcel } from "@/lib/excel-parser";
 import { validateAndTransform } from "@/lib/validator";
 import type { GanttHeat, ValidationError, ExcelRow } from "@/lib/types";
@@ -208,7 +207,6 @@ export default function Home() {
             <ValidationErrors errors={validationErrors} title="Lỗi nghiêm trọng" description="Các lỗi này ngăn cản việc hiển thị mẻ trên biểu đồ." />
             <ValidationErrors errors={warnings} title="Cảnh báo & Ghi chú" description="Các vấn đề này không chặn việc xử lý nhưng cần được xem xét." isWarning />
           
-            <PredictDuration historicalData={ganttData} />
           </div>
           <div className="lg:col-span-2">
             <Card className="h-full">
