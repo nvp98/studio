@@ -27,8 +27,14 @@ const UNIT_SEQUENCE: { [key: string]: { group: string; order: number } } = {
   TSC1: { group: "CASTER", order: 4 },
 };
 
-const getGroup = (unit: string): string => UNIT_SEQUENCE[unit]?.group || "UNKNOWN";
-const getSequenceOrder = (unit: string): number => UNIT_SEQUENCE[unit]?.order || 99;
+const getGroup = (unit: string): string => {
+  const upperUnit = unit.toUpperCase().trim();
+  return UNIT_SEQUENCE[upperUnit]?.group || "UNKNOWN";
+}
+const getSequenceOrder = (unit: string): number => {
+    const upperUnit = unit.toUpperCase().trim();
+    return UNIT_SEQUENCE[upperUnit]?.order || 99;
+}
 
 const calculateDuration = (start: Date, end: Date): number => {
   return Math.round((end.getTime() - start.getTime()) / (1000 * 60));
@@ -69,41 +75,33 @@ function parseTime(
   return parsedDate;
 }
 
+function findKey(obj: any, key: string) {
+    const keyLower = key.toLowerCase();
+    const foundKey = Object.keys(obj).find(k => k.toLowerCase().trim() === keyLower);
+    return foundKey ? obj[foundKey] : undefined;
+}
+
+
 function groupByHeatID(data: RawOperation[]): GroupedData {
   const grouped: GroupedData = {};
   data.forEach((row) => {
-    // Normalize keys from row
-    const normalizedRow: { [key: string]: any } = {};
-    for (const key in row) {
-        if (Object.prototype.hasOwnProperty.call(row, key)) {
-            const normalizedKey = key.trim();
-            normalizedRow[normalizedKey] = (row as any)[key];
-        }
-    }
+    const heatID = findKey(row, 'Heat_ID');
+    if (!heatID) return;
 
-    const heatIDKey = Object.keys(normalizedRow).find(k => k.toLowerCase() === 'heat_id');
-    const steelGradeKey = Object.keys(normalizedRow).find(k => k.toLowerCase() === 'steel_grade');
-    const unitKey = Object.keys(normalizedRow).find(k => k.toLowerCase() === 'unit');
-    const startTimeKey = Object.keys(normalizedRow).find(k => k.toLowerCase() === 'start_time');
-    const endTimeKey = Object.keys(normalizedRow).find(k => k.toLowerCase() === 'end_time');
-    const durationMinKey = Object.keys(normalizedRow).find(k => k.toLowerCase() === 'duration_min');
-
-    if (!heatIDKey || !normalizedRow[heatIDKey]) return;
-    
-    const heatID = String(normalizedRow[heatIDKey]);
-    if (!grouped[heatID]) {
-      grouped[heatID] = {
-        Heat_ID: heatID,
-        Steel_Grade: steelGradeKey ? normalizedRow[steelGradeKey] : undefined,
+    const heatIDStr = String(heatID);
+    if (!grouped[heatIDStr]) {
+      grouped[heatIDStr] = {
+        Heat_ID: heatIDStr,
+        Steel_Grade: findKey(row, 'Steel_Grade'),
         operations: [],
       };
     }
     
-    grouped[heatID].operations.push({
-      unit: unitKey ? normalizedRow[unitKey] : undefined,
-      Start_Time: startTimeKey ? normalizedRow[startTimeKey] : undefined,
-      End_Time: endTimeKey ? normalizedRow[endTimeKey] : undefined,
-      Duration_min: durationMinKey ? normalizedRow[durationMinKey] : undefined,
+    grouped[heatIDStr].operations.push({
+      unit: findKey(row, 'unit'),
+      Start_Time: findKey(row, 'Start_Time'),
+      End_Time: findKey(row, 'End_Time'),
+      Duration_min: findKey(row, 'Duration_min'),
     });
   });
   return grouped;
@@ -213,21 +211,21 @@ export async function parseAndValidateExcel(file: File): Promise<ProcessingResul
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // Convert to JSON with specific date format for time-only cells
-        const rawData: RawOperation[] = XLSX.utils.sheet_to_json(worksheet, {
-            raw: false, // Use formatted strings
-            dateNF: 'HH:mm:ss' // Format for dates/times
-        });
-
-        const requiredColumns = ["Heat_ID", "Steel_Grade", "unit", "Start_Time", "End_Time"];
-        const header: string[] = (XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[]).map(h => h.trim());
+        const header: string[] = (XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[]).map(h => h ? String(h).trim() : '');
         const lowerCaseHeader = header.map(h => h.toLowerCase());
-
+        
+        const requiredColumns = ["Heat_ID", "Steel_Grade", "unit", "Start_Time", "End_Time"];
         const missingColumns = requiredColumns.filter(col => !lowerCaseHeader.includes(col.toLowerCase()));
 
         if (missingColumns.length > 0) {
             throw new Error(`Missing required columns in Excel file: ${missingColumns.join(', ')}`);
         }
+
+        // Convert to JSON with specific date format for time-only cells
+        const rawData: RawOperation[] = XLSX.utils.sheet_to_json(worksheet, {
+            raw: false, // Use formatted strings
+            dateNF: 'HH:mm:ss' // Format for dates/times
+        });
 
         const groupedData = groupByHeatID(rawData);
         const result = validateData(groupedData);
