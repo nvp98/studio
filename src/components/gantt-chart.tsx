@@ -11,42 +11,41 @@ import { format } from 'date-fns';
 interface GanttChartProps {
   data: GanttHeat[];
   timeRange: TimeRange;
-  onHeatSelect: (heat: GanttHeat | null) => void;
+  onHeatSelect: (heatId: string | null) => void;
+  selectedHeatId: string | null;
 }
 
 const UNIT_ORDER = [
   "KR1", "KR2", "BOF1", "BOF2", "BOF3", "BOF4", "BOF5", "LF1", "LF2", "LF3", "LF4", "LF5", "BCM1", "BCM2", "BCM3", "TSC1", "TSC2"
 ];
 
-export function GanttChart({ data: heats, timeRange, onHeatSelect }: GanttChartProps) {
+export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatId }: GanttChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [selectedHeatId, setSelectedHeatId] = useState<string | null>(null);
 
   // Effect for updating styles only
   useEffect(() => {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    const heatData = svg.selectAll<SVGRectElement, Operation & { Heat_ID: string }>("rect.bar").data();
     const heatColorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(heats.map(h => h.Heat_ID));
 
     // Update bars
     svg.selectAll("rect.bar")
       .transition().duration(300)
-      .attr("fill", d => selectedHeatId === null || d.Heat_ID === selectedHeatId ? heatColorScale(d.Heat_ID) : "#cccccc")
-      .style("opacity", d => selectedHeatId === null || d.Heat_ID === selectedHeatId ? 1 : 0.5);
+      .attr("fill", (d: any) => selectedHeatId === null || d.Heat_ID === selectedHeatId ? heatColorScale(d.Heat_ID) : "#cccccc")
+      .style("opacity", (d: any) => selectedHeatId === null || d.Heat_ID === selectedHeatId ? 1 : 0.5);
 
     // Update labels
     svg.selectAll("text.bar-label")
       .transition().duration(300)
-      .style("opacity", d => selectedHeatId === null || (d as any).Heat_ID === selectedHeatId ? 1 : 0.3);
+      .style("opacity", (d: any) => selectedHeatId === null || (d as any).Heat_ID === selectedHeatId ? 1 : 0.3);
 
     // Update links
     svg.selectAll("line.link")
       .transition().duration(300)
-      .style("opacity", d => selectedHeatId === null || (d as any).Heat_ID === selectedHeatId ? 1 : 0.2);
+      .style("opacity", (d: any) => selectedHeatId === null || (d as any).Heat_ID === selectedHeatId ? 1 : 0.2);
 
   }, [selectedHeatId, heats]);
 
@@ -113,7 +112,6 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect }: GanttChartP
         .attr("height", height + margin.top + margin.bottom)
         .on("click", (event) => {
             if (event.target === event.currentTarget) {
-                setSelectedHeatId(null);
                 onHeatSelect(null);
             }
         });
@@ -160,14 +158,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect }: GanttChartP
       const handleBarClick = (event: MouseEvent, d: any) => {
           event.stopPropagation();
           const newSelectedId = selectedHeatId === d.Heat_ID ? null : d.Heat_ID;
-          setSelectedHeatId(newSelectedId);
-
-          if (newSelectedId) {
-            const selectedHeatData = heats.find(h => h.Heat_ID === newSelectedId);
-            onHeatSelect(selectedHeatData || null);
-          } else {
-            onHeatSelect(null);
-          }
+          onHeatSelect(newSelectedId);
       }
 
       const mouseover = () => tooltipEl.style("opacity", 1);
@@ -317,3 +308,5 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect }: GanttChartP
     </>
   );
 }
+
+    

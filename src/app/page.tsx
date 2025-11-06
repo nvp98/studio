@@ -78,7 +78,13 @@ export default function Home() {
   const [timeRange, setTimeRange] = useState<TimeRange>(24);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() });
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
-  const [selectedHeatDetails, setSelectedHeatDetails] = useState<GanttHeat | null>(null);
+  const [selectedHeatId, setSelectedHeatId] = useState<string | null>(null);
+
+  const selectedHeatDetails = useMemo(() => {
+    if (!selectedHeatId) return null;
+    return ganttData.find(h => h.Heat_ID === selectedHeatId) || null;
+  }, [selectedHeatId, ganttData]);
+
 
   const filteredGanttData = useMemo(() => {
     if (!dateRange || !dateRange.from || ganttData.length === 0) return [];
@@ -105,7 +111,7 @@ export default function Home() {
     setStats(null);
     setDateRange({ from: new Date(), to: new Date() });
     setAvailableDates([]);
-    setSelectedHeatDetails(null);
+    setSelectedHeatId(null);
   }
 
   const updateStats = (heats: GanttHeat[], errors: ValidationError[], warnings: ValidationError[]) => {
@@ -158,7 +164,7 @@ export default function Home() {
 
   const handleDateRangeSelect = (range: DateRange | undefined) => {
     setDateRange(range);
-    setSelectedHeatDetails(null); // Deselect heat when date changes
+    setSelectedHeatId(null); // Deselect heat when date changes
   }
 
   // Update stats whenever filteredGanttData changes
@@ -167,9 +173,21 @@ export default function Home() {
   }, [filteredGanttData, validationErrors, warnings]);
 
 
-  const handleHeatSelect = (heat: GanttHeat | null) => {
-    setSelectedHeatDetails(heat);
+  const handleHeatSelect = (heatId: string | null) => {
+    setSelectedHeatId(heatId);
   }
+
+  const handleStatClick = (heatId: string | null) => {
+    if (heatId) {
+      const heat = filteredGanttData.find(h => h.Heat_ID === heatId);
+      if (heat) {
+        setSelectedHeatId(heat.Heat_ID);
+        // Optional: Scroll to the Gantt chart
+        const ganttElement = document.getElementById('gantt-chart-card');
+        ganttElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
 
 
   const detailedGradeStats = useMemo<GradeStats>(() => {
@@ -336,11 +354,11 @@ export default function Home() {
                         <CardDescription>Các mẻ có thời gian xử lý dài nhất</CardDescription>
                     </CardHeader>
                      <CardContent className="text-sm space-y-2">
-                        {stats.longestOverall && <div className="flex justify-between"><span>Tổng thể:</span> <span className="font-bold">{stats.longestOverall.heatId} ({stats.longestOverall.duration}p)</span></div>}
-                        {stats.longestKR && <div className="flex justify-between"><span>KR:</span> <span className="font-bold">{stats.longestKR.heatId} ({stats.longestKR.duration}p)</span></div>}
-                        {stats.longestBOF && <div className="flex justify-between"><span>BOF:</span> <span className="font-bold">{stats.longestBOF.heatId} ({stats.longestBOF.duration}p)</span></div>}
-                        {stats.longestLF && <div className="flex justify-between"><span>LF:</span> <span className="font-bold">{stats.longestLF.heatId} ({stats.longestLF.duration}p)</span></div>}
-                        {stats.longestCaster && <div className="flex justify-between"><span>Đúc:</span> <span className="font-bold">{stats.longestCaster.heatId} ({stats.longestCaster.duration}p)</span></div>}
+                        {stats.longestOverall && <div onClick={() => handleStatClick(stats.longestOverall!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>Tổng thể:</span> <span className="font-bold">{stats.longestOverall.heatId} ({stats.longestOverall.duration}p)</span></div>}
+                        {stats.longestKR && <div onClick={() => handleStatClick(stats.longestKR!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>KR:</span> <span className="font-bold">{stats.longestKR.heatId} ({stats.longestKR.duration}p)</span></div>}
+                        {stats.longestBOF && <div onClick={() => handleStatClick(stats.longestBOF!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>BOF:</span> <span className="font-bold">{stats.longestBOF.heatId} ({stats.longestBOF.duration}p)</span></div>}
+                        {stats.longestLF && <div onClick={() => handleStatClick(stats.longestLF!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>LF:</span> <span className="font-bold">{stats.longestLF.heatId} ({stats.longestLF.duration}p)</span></div>}
+                        {stats.longestCaster && <div onClick={() => handleStatClick(stats.longestCaster!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>Đúc:</span> <span className="font-bold">{stats.longestCaster.heatId} ({stats.longestCaster.duration}p)</span></div>}
                     </CardContent>
                 </Card>
             )}
@@ -352,11 +370,11 @@ export default function Home() {
                         <CardDescription>Các mẻ có thời gian xử lý ngắn nhất</CardDescription>
                     </CardHeader>
                      <CardContent className="text-sm space-y-2">
-                        {stats.shortestOverall && <div className="flex justify-between"><span>Tổng thể:</span> <span className="font-bold">{stats.shortestOverall.heatId} ({stats.shortestOverall.duration}p)</span></div>}
-                        {stats.shortestKR && <div className="flex justify-between"><span>KR:</span> <span className="font-bold">{stats.shortestKR.heatId} ({stats.shortestKR.duration}p)</span></div>}
-                        {stats.shortestBOF && <div className="flex justify-between"><span>BOF:</span> <span className="font-bold">{stats.shortestBOF.heatId} ({stats.shortestBOF.duration}p)</span></div>}
-                        {stats.shortestLF && <div className="flex justify-between"><span>LF:</span> <span className="font-bold">{stats.shortestLF.heatId} ({stats.shortestLF.duration}p)</span></div>}
-                        {stats.shortestCaster && <div className="flex justify-between"><span>Đúc:</span> <span className="font-bold">{stats.shortestCaster.heatId} ({stats.shortestCaster.duration}p)</span></div>}
+                        {stats.shortestOverall && <div onClick={() => handleStatClick(stats.shortestOverall!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>Tổng thể:</span> <span className="font-bold">{stats.shortestOverall.heatId} ({stats.shortestOverall.duration}p)</span></div>}
+                        {stats.shortestKR && <div onClick={() => handleStatClick(stats.shortestKR!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>KR:</span> <span className="font-bold">{stats.shortestKR.heatId} ({stats.shortestKR.duration}p)</span></div>}
+                        {stats.shortestBOF && <div onClick={() => handleStatClick(stats.shortestBOF!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>BOF:</span> <span className="font-bold">{stats.shortestBOF.heatId} ({stats.shortestBOF.duration}p)</span></div>}
+                        {stats.shortestLF && <div onClick={() => handleStatClick(stats.shortestLF!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>LF:</span> <span className="font-bold">{stats.shortestLF.heatId} ({stats.shortestLF.duration}p)</span></div>}
+                        {stats.shortestCaster && <div onClick={() => handleStatClick(stats.shortestCaster!.heatId)} className="flex justify-between cursor-pointer hover:bg-accent/50 p-1 rounded-md"><span>Đúc:</span> <span className="font-bold">{stats.shortestCaster.heatId} ({stats.shortestCaster.duration}p)</span></div>}
                     </CardContent>
                 </Card>
             )}
@@ -426,7 +444,7 @@ export default function Home() {
           
           </div>
           <div className="xl:col-span-3 flex flex-col gap-6">
-            <Card>
+            <Card id="gantt-chart-card">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <CardTitle className="font-headline">Biểu đồ Gantt</CardTitle>
@@ -494,6 +512,7 @@ export default function Home() {
                     data={filteredGanttData} 
                     timeRange={timeRange} 
                     onHeatSelect={handleHeatSelect}
+                    selectedHeatId={selectedHeatId}
                     key={dateRange?.from?.toISOString()}
                   />
                 ) : (
@@ -605,3 +624,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
