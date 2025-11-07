@@ -4,10 +4,9 @@
 import { useState, useMemo, useCallback } from "react";
 import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle, Info, Star, Zap } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
-import { UrlUploader } from "@/components/url-uploader";
 import { GanttChart } from "@/components/gantt-chart";
 import { ValidationErrors } from "@/components/validation-errors";
-import { parseExcel, parseFromUrl } from "@/lib/excel-parser";
+import { parseExcel } from "@/lib/excel-parser";
 import { validateAndTransform } from "@/lib/validator";
 import type { GanttHeat, ValidationError, ExcelRow, Operation } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -281,21 +280,6 @@ export default function Home() {
     }
   };
 
-  const handleUrlProcess = async (url: string) => {
-    setIsLoading(true);
-    resetState();
-
-    try {
-      const { rows: parsedRows, warnings: parseWarnings } = await parseFromUrl(url);
-      processData(parsedRows, parseWarnings);
-    } catch (e: any) {
-      console.error(e);
-      setError(`Đã xảy ra lỗi khi tải từ URL: ${e.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const exportToJson = () => {
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
       JSON.stringify(cleanJson, null, 2)
@@ -338,7 +322,6 @@ export default function Home() {
         <div className="grid gap-6 xl:grid-cols-4">
           <div className="flex flex-col gap-6 xl:col-span-1">
             <FileUploader onFileProcess={handleFileProcess} isLoading={isLoading} />
-            <UrlUploader onUrlProcess={handleUrlProcess} isLoading={isLoading} />
 
             <a href="/sample-data.xlsx" download="sample-data.xlsx">
               <Button variant="outline" className="w-full">
@@ -553,7 +536,7 @@ export default function Home() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground gap-4">
                     <FileJson className="w-16 h-16" />
-                    <p className="text-center">Tải lên tệp Excel hoặc nhập URL để tạo biểu đồ Gantt.</p>
+                    <p className="text-center">Tải lên tệp Excel để tạo biểu đồ Gantt.</p>
                      <p className="text-xs text-center max-w-sm">Hỗ trợ các cột: Date, Heat_ID, Steel_Grade, Unit, Start_Time, End_Time, sequence_number (tùy chọn).</p>
                   </div>
                 )}
@@ -659,5 +642,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
