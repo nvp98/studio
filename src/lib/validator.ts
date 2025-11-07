@@ -29,12 +29,15 @@ function parseTimeWithDate(dateStr: string, hhmm: string, baseDate: Date, prevTi
     const [hours, minutes] = hhmm.split(':').map(Number);
     if (isNaN(hours) || isNaN(minutes)) return null;
 
+    // Use the row's specific date string if available, otherwise fall back to the baseDate from the first row.
     let targetDate = dateStr ? new Date(dateStr) : baseDate;
-    if (isNaN(targetDate.getTime())) return null;
-    
+    // If date is invalid, it's a critical error for parsing.
+    if (isNaN(targetDate.getTime())) return null; 
+
     let currentTime = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), hours, minutes);
 
-    // Xử lý qua ngày: nếu thời gian hiện tại sớm hơn đáng kể so với lần trước, giả định nó là ngày hôm sau
+    // Handle overnight logic: if the current time is significantly earlier than the previous time
+    // (e.g., 23:00 then 01:00), assume it's the next day.
     if (prevTime && currentTime < prevTime) {
         currentTime.setDate(currentTime.getDate() + 1);
     }
