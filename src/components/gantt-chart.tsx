@@ -62,7 +62,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
     const svg = d3.select(svgRef.current);
     
     // Fade non-selected elements
-    svg.selectAll("rect.bar, .bar-label")
+    svg.selectAll("rect.bar, g.bar-label")
        .transition().duration(300)
        .style("opacity", (d: any) => selectedHeatId === null || d.Heat_ID === selectedHeatId ? 1 : 0.45);
 
@@ -236,6 +236,8 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
         .attr("width", d => Math.max(1, xScale(d.endTime) - xScale(d.startTime)))
         .attr("height", yScale.bandwidth())
         .attr("fill", d => getColor(d.castingMachine).bg)
+        .attr("stroke", "hsl(var(--card-foreground))")
+        .attr("stroke-width", 0.5)
         .attr("rx", 6)
         .attr("ry", 6)
         .style("cursor", "pointer")
