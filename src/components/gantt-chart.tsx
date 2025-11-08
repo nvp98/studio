@@ -23,10 +23,10 @@ const UNIT_ORDER = [
 ];
 
 const CASTER_COLORS: { [key: string]: string } = {
-    TSC1: "#FF6500", // Orange
-    TSC2: "#05339C", // Dark Blue
+    TSC1: "#FF6500", 
+    TSC2: "#05339C", 
     BCM1: "#43A047", // Green
-    BCM2: "#FB8C00", // Orange (different shade)
+    BCM2: "#FB8C00", // Orange
     BCM3: "#E53935", // Red
 };
 
@@ -34,13 +34,16 @@ const CASTER_COLORS: { [key: string]: string } = {
 function getColor(caster: string | undefined): { bg: string; text: string } {
     const bgColor = caster ? CASTER_COLORS[caster] ?? '#cccccc' : '#cccccc';
 
-    const color = d3.color(bgColor);
-    const lightness = color ? (d3.hsl(color).l) : 0.5;
-    const textColor = getContrastingTextColor(lightness);
+    // Simplified lightness check for hex colors
+    const hex = bgColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    const textColor = brightness > 150 ? '#0A0A0A' : '#FFFFFF';
 
     return { bg: bgColor, text: textColor };
 }
-
 
 // Function to determine text color based on background lightness
 function getContrastingTextColor(lightness: number): string {
@@ -218,7 +221,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
         .attr("stroke", "hsl(var(--foreground))")
         .attr("stroke-width", 1.5)
         .attr("stroke-dasharray", "5,3")
-        .style("opacity", 0.3) // Show by default with low opacity
+        .style("opacity", 0.3) 
         .style("pointer-events", "none");
 
       // Draw bars
@@ -269,7 +272,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
       labels.append("text")
         .attr("class", "sequence-label")
         .attr("alignment-baseline", "middle")
-        .text(d => d.group === 'CASTER' ? ` (#${d.sequenceInCaster})` : "")
+        .text(d => ` (#${d.sequenceInCaster})`)
         .attr("font-size", "10px")
         .attr("font-weight", 400)
         .attr("fill", d => getColor(d.castingMachine).text)
