@@ -279,7 +279,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
             }
             return '';
         })
-        .attr("font-size", "10px")
+        .attr("font-size", "12px")
         .attr("font-weight", 400)
         .attr("fill", d => getColor(d.castingMachine).text)
         .attr("dx", d => (d.Heat_ID.length * 7)); // Approximate offset
