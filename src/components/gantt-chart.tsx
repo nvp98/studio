@@ -37,10 +37,14 @@ function getColor(sequence: number | undefined, caster: string | undefined): { b
     }
     const hue = CASTER_HUES[caster] ?? 240;
     const maxSequence = 50;
-    const intensity = Math.min(sequence, maxSequence) / maxSequence;
+    
+    // Inverted intensity calculation
+    // Sequence 1 -> intensity should be high (for dark/dim)
+    // Sequence 50 -> intensity should be low (for light/vibrant)
+    const intensity = 1 - (Math.min(sequence, maxSequence) - 1) / (maxSequence - 1);
 
-    const saturation = 0.45 + 0.55 * intensity;
-    const lightness = 0.92 - 0.50 * intensity;
+    const saturation = 0.45 + 0.55 * (1 - intensity); // More saturation for later (brighter) heats
+    const lightness = 0.42 + 0.50 * (1 - intensity);  // More lightness for later (brighter) heats
 
     const bgColor = d3.hsl(hue, saturation, lightness).toString();
     const textColor = getContrastingTextColor(lightness);
@@ -48,9 +52,10 @@ function getColor(sequence: number | undefined, caster: string | undefined): { b
     return { bg: bgColor, text: textColor };
 }
 
+
 // Function to determine text color based on background lightness
 function getContrastingTextColor(lightness: number): string {
-    return lightness > 0.55 ? '#0A0A0A' : '#FFFFFF';
+    return lightness > 0.6 ? '#0A0A0A' : '#FFFFFF';
 }
 
 export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatId }: GanttChartProps) {
