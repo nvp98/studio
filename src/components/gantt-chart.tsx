@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useEffect, useState } from 'react';
@@ -22,30 +21,21 @@ const UNIT_ORDER = [
   "BCM1", "BCM2", "BCM3", "TSC1", "TSC2"
 ];
 
-const CASTER_HUES: { [key: string]: number } = {
-    TSC1: 221, // #05339C
-    TSC2: 211, // #1E3E62
-    BCM1: 122, // #43A047 (Green)
-    BCM2: 35,  // #FB8C00 (Orange)
-    BCM3: 1,   // #E53935 (Red)
+const CASTER_COLORS: { [key: string]: string } = {
+    TSC1: "#FF6500", // Orange
+    TSC2: "#05339C", // Dark Blue
+    BCM1: "#43A047", // Green
+    BCM2: "#FB8C00", // Orange (different shade)
+    BCM3: "#E53935", // Red
 };
 
-// Function to get color based on sequence and caster
-function getColor(sequence: number | undefined, caster: string | undefined): { bg: string; text: string } {
-    if (caster === undefined || sequence === undefined) {
-        return { bg: '#cccccc', text: '#0A0A0A' }; // Default gray
-    }
-    const hue = CASTER_HUES[caster] ?? 240;
-    const maxSequence = 50; 
-    
-    // Higher sequence = darker shade (intensity closer to 1)
-    const intensity = Math.min(sequence, maxSequence) / maxSequence;
+// Function to get color based on caster
+function getColor(caster: string | undefined): { bg: string; text: string } {
+    const bgColor = caster ? CASTER_COLORS[caster] ?? '#cccccc' : '#cccccc';
 
-    // Adjust saturation and lightness based on intensity
-    const saturation = 0.45 + 0.55 * intensity;
-    const lightness = 0.92 - 0.50 * intensity;
-
-    const bgColor = d3.hsl(hue, saturation, lightness).toString();
+    // Determine if the background color is light or dark to set a contrasting text color
+    const color = d3.color(bgColor);
+    const lightness = color ? (d3.hsl(color).l) : 0.5;
     const textColor = getContrastingTextColor(lightness);
 
     return { bg: bgColor, text: textColor };
@@ -241,7 +231,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
         .attr("y", d => yScale(d.unit)!)
         .attr("width", d => Math.max(1, xScale(d.endTime) - xScale(d.startTime)))
         .attr("height", yScale.bandwidth())
-        .attr("fill", d => getColor(d.sequenceInCaster, d.castingMachine).bg)
+        .attr("fill", d => getColor(d.castingMachine).bg)
         .attr("rx", 6)
         .attr("ry", 6)
         .style("cursor", "pointer")
@@ -273,7 +263,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
         .text(d => d.Heat_ID)
         .attr("font-size", "12px")
         .attr("font-weight", 500)
-        .attr("fill", d => getColor(d.sequenceInCaster, d.castingMachine).text);
+        .attr("fill", d => getColor(d.castingMachine).text);
 
       labels.append("text")
         .attr("class", "sequence-label")
@@ -281,7 +271,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
         .text(d => d.group === 'CASTER' ? ` (#${d.sequenceInCaster})` : "")
         .attr("font-size", "10px")
         .attr("font-weight", 400)
-        .attr("fill", d => getColor(d.sequenceInCaster, d.castingMachine).text)
+        .attr("fill", d => getColor(d.castingMachine).text)
         .attr("dx", d => (d.Heat_ID.length * 7)); // Approximate offset
 
       // Hide labels that don't fit
