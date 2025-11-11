@@ -22,6 +22,8 @@ import { DateRange } from 'react-day-picker';
 import { vi } from 'date-fns/locale';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { groupBy } from "lodash";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 
 
 interface OpStat {
