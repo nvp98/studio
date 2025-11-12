@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle, Info, Star, Zap, Link } from "lucide-react";
+import { Loader2, ServerCrash, Download, Trash2, FileJson, ListX, BarChart2, FileDown, CalendarIcon, Timer, Hourglass, AlertCircle, Info, Star, Zap, Link, Columns3 } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { GanttChart } from "@/components/gantt-chart";
 import { ValidationErrors } from "@/components/validation-errors";
@@ -68,6 +68,23 @@ interface GradeStats {
 
 
 export type TimeRange = 8 | 12 | 24 | 48;
+export type GanttLayout = 'default' | 'userDefined';
+
+// Original logical order
+const DEFAULT_UNIT_ORDER = [
+  "KR1", "KR2", 
+  "BOF1", "BOF2", "BOF3", "BOF4", "BOF5", 
+  "LF1", "LF2", "LF3", "LF4", "LF5", 
+  "BCM1", "BCM2", "BCM3", "TSC1", "TSC2"
+];
+
+// User specified order
+const USER_DEFINED_UNIT_ORDER = [
+    'BCM3', 'BCM2', 'LF4', 'LF1', 'BOF5', 'BOF2', 'BCM1', 
+    'LF3', 'BOF1', 'KR1', 'KR2', 'BOF4', 'BOF3', 'LF2', 
+    'LF5', 'TSC2', 'TSC1'
+];
+
 
 export default function Home() {
   const [ganttData, setGanttData] = useState<GanttHeat[]>([]);
@@ -79,6 +96,7 @@ export default function Home() {
   const [cleanJson, setCleanJson] = useState<ExcelRow[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>(24);
+  const [ganttLayout, setGanttLayout] = useState<GanttLayout>('default');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const [selectedHeatId, setSelectedHeatId] = useState<string | null>(null);
@@ -544,6 +562,18 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <CardTitle className="font-headline">Biểu đồ Gantt</CardTitle>
                     <div className="flex flex-wrap items-center gap-2">
+                        <ToggleGroup 
+                            type="single" 
+                            value={ganttLayout}
+                            onValueChange={(value) => {
+                                if (value) setGanttLayout(value as GanttLayout);
+                            }}
+                            aria-label="Select Gantt Layout"
+                        >
+                            <ToggleGroupItem value="default" aria-label="Default Layout">Mặc định</ToggleGroupItem>
+                            <ToggleGroupItem value="userDefined" aria-label="User Defined Layout">Tùy chỉnh</ToggleGroupItem>
+                        </ToggleGroup>
+
                          <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -609,7 +639,8 @@ export default function Home() {
                     timeRange={timeRange} 
                     onHeatSelect={handleHeatSelect}
                     selectedHeatId={selectedHeatId}
-                    key={dateRange?.from?.toISOString()}
+                    unitOrder={ganttLayout === 'default' ? DEFAULT_UNIT_ORDER : USER_DEFINED_UNIT_ORDER}
+                    key={`${dateRange?.from?.toISOString()}-${ganttLayout}`}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground gap-4">
@@ -730,3 +761,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

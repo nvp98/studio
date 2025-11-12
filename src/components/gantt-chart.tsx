@@ -13,14 +13,8 @@ interface GanttChartProps {
   timeRange: TimeRange;
   onHeatSelect: (heatId: string | null) => void;
   selectedHeatId: string | null;
+  unitOrder: string[];
 }
-
-const UNIT_ORDER = [
-  "KR1", "KR2", 
-  "BOF1", "BOF2", "BOF3", "BOF4", "BOF5", 
-  "LF1", "LF2", "LF3", "LF4", "LF5", 
-  "BCM1", "BCM2", "BCM3", "TSC1", "TSC2"
-];
 
 const CASTER_COLORS: { [key: string]: string } = {
     TSC1: "#41A67E",
@@ -41,7 +35,7 @@ function getColor(caster: string | undefined): { bg: string; text: string } {
     return { bg: bgColor, text: textColor };
 }
 
-export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatId }: GanttChartProps) {
+export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatId, unitOrder }: GanttChartProps) {
   const yAxisRef = useRef<SVGSVGElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -119,7 +113,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
       const containerWidth = chartOutputEl.clientWidth;
       const barHeight = 28;
       const barPadding = 8;
-      const height = UNIT_ORDER.length * (barHeight + barPadding);
+      const height = unitOrder.length * (barHeight + barPadding);
       
       const totalTimeMinutes = (fullTimeDomainEnd.getTime() - fullTimeDomainStart.getTime()) / 60000;
       const visibleTimeMinutes = timeRange * 60;
@@ -141,7 +135,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
       const xScale = d3.scaleTime().domain([fullTimeDomainStart, fullTimeDomainEnd]).range([0, width]);
-      const yScale = d3.scaleBand().domain(UNIT_ORDER).range([0, height]).paddingInner(barPadding / (barHeight + barPadding)).paddingOuter(0.2);
+      const yScale = d3.scaleBand().domain(unitOrder).range([0, height]).paddingInner(barPadding / (barHeight + barPadding)).paddingOuter(0.2);
 
       // --- Draw Y-Axis in its own SVG ---
       const yAxisSvg = d3.select(yAxisEl)
@@ -295,7 +289,7 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
 
-  }, [heats, timeRange]);
+  }, [heats, timeRange, unitOrder]);
 
   return (
     <div className="flex w-full">
@@ -340,4 +334,5 @@ export function GanttChart({ data: heats, timeRange, onHeatSelect, selectedHeatI
 }
 
 
+    
     
