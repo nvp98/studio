@@ -167,7 +167,7 @@ const USER_DEFINED_UNIT_ORDER = [
 export default function Home() {
   const [ganttData, setGanttData] = useState<GanttHeat[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
-    []
+    [],
   );
   const [warnings, setWarnings] = useState<ValidationError[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -198,8 +198,8 @@ export default function Home() {
       heat.operations.some(
         (op) =>
           isWithinInterval(op.startTime, { start, end: addDays(end, 1) }) ||
-          isWithinInterval(op.endTime, { start, end: addDays(end, 1) })
-      )
+          isWithinInterval(op.endTime, { start, end: addDays(end, 1) }),
+      ),
     );
   }, [ganttData, dateRange]);
 
@@ -227,11 +227,11 @@ export default function Home() {
       const allWarnings = [
         ...parseWarnings,
         ...validationErrs.filter(
-          (e) => e.kind === "PLACEHOLDER" || e.kind === "UNIT"
+          (e) => e.kind === "PLACEHOLDER" || e.kind === "UNIT",
         ),
       ];
       const allErrors = validationErrs.filter(
-        (e) => e.kind !== "PLACEHOLDER" && e.kind !== "UNIT"
+        (e) => e.kind !== "PLACEHOLDER" && e.kind !== "UNIT",
       );
 
       setGanttData(validHeats);
@@ -242,8 +242,8 @@ export default function Home() {
         const dates = [
           ...new Set(
             validHeats.flatMap((h) =>
-              h.operations.map((op) => startOfDay(op.startTime).getTime())
-            )
+              h.operations.map((op) => startOfDay(op.startTime).getTime()),
+            ),
           ),
         ].map((t) => new Date(t));
         setAvailableDates(dates);
@@ -257,7 +257,7 @@ export default function Home() {
         setDateRange(undefined);
       }
     },
-    []
+    [],
   );
 
   const updateStats = (heats: GanttHeat[]) => {
@@ -265,7 +265,7 @@ export default function Home() {
     const totalIdle = heats.reduce((acc, heat) => acc + heat.totalIdleTime, 0);
     const totalProcessingTime = heats.reduce(
       (acc, heat) => acc + heat.totalDuration,
-      0
+      0,
     );
     const uniqueGrades = new Set(heats.map((h) => h.Steel_Grade));
 
@@ -273,7 +273,7 @@ export default function Home() {
     let shortestOverall: OpStat | null = null;
     if (heats.length > 0) {
       const heatWithLongestTime = heats.reduce((prev, current) =>
-        prev.totalDuration > current.totalDuration ? prev : current
+        prev.totalDuration > current.totalDuration ? prev : current,
       );
       longestOverall = {
         heatId: heatWithLongestTime.Heat_ID,
@@ -281,7 +281,7 @@ export default function Home() {
       };
 
       const heatWithShortestTime = heats.reduce((prev, current) =>
-        prev.totalDuration < current.totalDuration ? prev : current
+        prev.totalDuration < current.totalDuration ? prev : current,
       );
       shortestOverall = {
         heatId: heatWithShortestTime.Heat_ID,
@@ -291,12 +291,12 @@ export default function Home() {
 
     const findOpStatInGroup = (
       group: string,
-      type: "longest" | "shortest"
+      type: "longest" | "shortest",
     ): OpStat | null => {
       const groupOps = heats.flatMap((h) =>
         h.operations
           .filter((op) => op.group === group)
-          .map((op) => ({ ...op, Heat_ID: h.Heat_ID }))
+          .map((op) => ({ ...op, Heat_ID: h.Heat_ID })),
       );
       if (groupOps.length === 0) return null;
 
@@ -332,9 +332,58 @@ export default function Home() {
     });
   };
 
-  const handleDateRangeSelect = (range: DateRange | undefined) => {
+  const handleDateRangeSelect = async (range: DateRange | undefined) => {
+    if (!range?.from) {
+      setDateRange(range);
+      setSelectedHeatId(null);
+      return;
+    }
+
     setDateRange(range);
-    setSelectedHeatId(null); // Deselect heat when date changes
+    setSelectedHeatId(null);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const startDate = format(range.from, "yyyy-MM-dd");
+      const endDate = range.to ? format(range.to, "yyyy-MM-dd") : startDate;
+
+      const result = await getGanttData.getDataDemo(startDate, endDate);
+      
+      // Xử lý data nhưng KHÔNG set lại dateRange để tránh vòng lặp
+      const parsedRows = result.data;
+      setPreviewData(parsedRows.slice(0, 20));
+      setCleanJson(parsedRows);
+
+      const { validHeats, errors: validationErrs } = validateAndTransform(parsedRows);
+      const allWarnings = validationErrs.filter(
+        (e) => e.kind === "PLACEHOLDER" || e.kind === "UNIT"
+      );
+      const allErrors = validationErrs.filter(
+        (e) => e.kind !== "PLACEHOLDER" && e.kind !== "UNIT"
+      );
+
+      setGanttData(validHeats);
+      setValidationErrors(allErrors);
+      setWarnings(allWarnings);
+
+      // Cập nhật availableDates nhưng KHÔNG set dateRange
+      if (validHeats.length > 0) {
+        const dates = [
+          ...new Set(
+            validHeats.flatMap((h) =>
+              h.operations.map((op) => startOfDay(op.startTime).getTime())
+            )
+          ),
+        ].map((t) => new Date(t));
+        setAvailableDates(dates);
+      }
+    } catch (e: any) {
+      console.error(e);
+      setError(`Lỗi khi tải dữ liệu: ${e.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Update stats whenever filteredGanttData changes
@@ -368,11 +417,11 @@ export default function Home() {
                 Math.round(
                   (new Date(op.endTime).getTime() -
                     new Date(op.startTime).getTime()) /
-                    (1000 * 60)
+                    (1000 * 60),
                 ),
             }))
             .sort(
-              (a: any, b: any) => a.startTime.getTime() - b.startTime.getTime()
+              (a: any, b: any) => a.startTime.getTime() - b.startTime.getTime(),
             ); // Sắp xếp theo startTime
 
           // Tính idle time cho từng operation
@@ -390,11 +439,11 @@ export default function Home() {
           // Tính tổng duration và totalIdleTime
           const totalDuration = operations.reduce(
             (acc: number, op: any) => acc + op.Duration_min,
-            0
+            0,
           );
           const totalIdleTime = operations.reduce(
             (acc: number, op: any) => acc + (op.idleTimeMinutes || 0),
-            0
+            0,
           );
 
           return {
@@ -412,22 +461,22 @@ export default function Home() {
         const allDates = parsed.flatMap((h: any) =>
           h.operations.map(
             (op: { startTime: string | number | Date }) =>
-              new Date(op.startTime)
-          )
+              new Date(op.startTime),
+          ),
         );
 
         if (allDates.length > 0) {
           const minDate = new Date(
-            Math.min(...allDates.map((d: any) => d.getTime()))
+            Math.min(...allDates.map((d: any) => d.getTime())),
           );
           const maxDate = new Date(
-            Math.max(...allDates.map((d: any) => d.getTime()))
+            Math.max(...allDates.map((d: any) => d.getTime())),
           );
 
           setAvailableDates(
             Array.from(new Set(allDates.map((d: any) => d.toDateString()))).map(
-              (s: any) => new Date(s)
-            )
+              (s: any) => new Date(s),
+            ),
           );
           setDateRange({ from: minDate, to: maxDate });
         }
@@ -538,9 +587,8 @@ export default function Home() {
     formData.append("file", file);
 
     try {
-      const { rows: parsedRows, warnings: parseWarnings } = await parseExcel(
-        file
-      );
+      const { rows: parsedRows, warnings: parseWarnings } =
+        await parseExcel(file);
       processData(parsedRows, parseWarnings);
     } catch (e: any) {
       console.error(e);
@@ -575,7 +623,7 @@ export default function Home() {
 
   const exportToJson = () => {
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-      JSON.stringify(cleanJson, null, 2)
+      JSON.stringify(cleanJson, null, 2),
     )}`;
     const link = document.createElement("a");
     link.href = jsonString;
@@ -655,7 +703,7 @@ export default function Home() {
                       ? dateRange.to && !isSameDay(dateRange.from, dateRange.to)
                         ? `Từ ${format(dateRange.from, "dd/MM")} đến ${format(
                             dateRange.to,
-                            "dd/MM/yyyy"
+                            "dd/MM/yyyy",
                           )}`
                         : format(dateRange.from, "dd/MM/yyyy")
                       : "Tất cả dữ liệu"}
@@ -966,9 +1014,9 @@ export default function Home() {
                           selected={dateRange}
                           onSelect={handleDateRangeSelect}
                           numberOfMonths={2}
-                          disabled={(date) =>
-                            !availableDates.some((ad) => isSameDay(ad, date))
-                          }
+                          // disabled={(date) =>
+                          //   !availableDates.some((ad) => isSameDay(ad, date))
+                          // }
                           modifiers={{ available: availableDates }}
                           modifiersClassNames={{
                             available: "bg-primary/20 rounded-md",
@@ -1002,7 +1050,7 @@ export default function Home() {
                     <Button
                       onClick={() =>
                         setGanttLayout(
-                          ganttLayout === "default" ? "userDefined" : "default"
+                          ganttLayout === "default" ? "userDefined" : "default",
                         )
                       }
                       variant="outline"
@@ -1209,7 +1257,7 @@ export default function Home() {
                                     : "-"}
                                 </TableCell>
                               </TableRow>
-                            )
+                            ),
                           )}
                         </TableBody>
                       </Table>

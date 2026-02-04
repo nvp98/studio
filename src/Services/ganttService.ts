@@ -31,8 +31,18 @@ const api = axios.create({
 });
 
 export const getGanttData = {
-  getData: () => api.get("/SteelCycleTimes/demo"),
-  getDataDemo: () => api.get("/SteelCycleTimes"),
+  getData: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('startDate', fromDate);
+    if (toDate) params.append('endDate', toDate);
+    return api.get(`/SteelCycleTimes/demo?${params.toString()}`);
+  },
+  getDataDemo: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('startDate', fromDate);
+    if (toDate) params.append('endDate', toDate);
+    return api.get(`/SteelCycleTimes?${params.toString()}`);
+  },
 };
 
 // Lấy dữ liệu thùng gang thời điểm hiện tại từ production API
